@@ -56,6 +56,7 @@ export const AuthProvider = ({ children }) => {
   const setGuest = () => {
     const res = authSetGuestMode();
     setUser(res.user);
+    setLoading(false);
   };
 
   return (

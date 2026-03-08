@@ -27,9 +27,8 @@ export const registerUser = async (username, password) => {
       ]);
 
     if (profileError) {
-      // If profile creation fails, we should probably delete the auth user or handle it
       console.error("Profile creation failed:", profileError);
-      return { success: false, error: 'Summoner profile creation failed.' };
+      return { success: false, error: `Summoner profile creation failed: ${profileError.message}` };
     }
 
     return { success: true, user: { id: authData.user.id, username, role: 'user' } };
