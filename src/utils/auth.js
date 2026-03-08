@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 
 /**
  * Wraps a promise with a timeout.
- * If the promise doesn't resolve within `ms` milliseconds, it rejects with a timeout error.
  */
 const withTimeout = (promise, ms = 10000) => {
   const timeout = new Promise((_, reject) =>
@@ -12,7 +11,9 @@ const withTimeout = (promise, ms = 10000) => {
 };
 
 /**
- * Registers a new user via Supabase Auth and creates a profile.
+ * Registers a new user via Supabase Auth.
+ * The profile is automatically created by a database trigger (handle_new_user).
+ * We do NOT insert the profile here to avoid the Web Locks race condition.
  */
 export const registerUser = async (username, password) => {
   try {
@@ -22,27 +23,15 @@ export const registerUser = async (username, password) => {
       supabase.auth.signUp({
         email,
         password,
-        options: { data: { username } }
+        options: { data: { username } } // username stored in user_meta_data for the trigger
       })
     );
 
     if (authError) throw authError;
     if (!authData.user) throw new Error("Authentication failed — no user returned.");
 
-    // Small delay to let the auth token settle
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    // Create the public profile
-    const { error: profileError } = await withTimeout(
-      supabase.from('profiles').insert([
-        { id: authData.user.id, username, role: 'user' }
-      ])
-    );
-
-    if (profileError) {
-      console.error("Profile creation failed:", profileError);
-      return { success: false, error: `Profile error: ${profileError.message}` };
-    }
+    // Wait for the DB trigger to create the profile
+    await new Promise(resolve => setTimeout(resolve, 1200));
 
     return { success: true, user: { id: authData.user.id, username, role: 'user' } };
   } catch (error) {
@@ -64,7 +53,6 @@ export const loginUser = async (username, password) => {
 
     if (authError) throw authError;
 
-    // Fetch profile data
     const { data: profile, error: profileError } = await withTimeout(
       supabase.from('profiles').select('*').eq('id', authData.user.id).single()
     );
@@ -86,21 +74,13 @@ export const logoutUser = async () => {
 export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   return profile;
 };
 
 export const getTotalUserCount = async () => {
   try {
-    const { count, error } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
+    const { count, error } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
     if (error) throw error;
     return count || 0;
   } catch (error) {
@@ -109,15 +89,8 @@ export const getTotalUserCount = async () => {
   }
 };
 
-/**
- * Guest mode uses LocalStorage as it's ephemeral
- */
 export const setGuestMode = () => {
-  const sessionData = {
-    id: 'guest_' + Date.now(),
-    username: 'Guest',
-    role: 'guest'
-  };
+  const sessionData = { id: 'guest_' + Date.now(), username: 'Guest', role: 'guest' };
   localStorage.setItem('hextech_trivia_guest_session', JSON.stringify(sessionData));
   return { success: true, user: sessionData };
 };
