@@ -11,44 +11,56 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
+    // ⚡ Safety net: ALWAYS stop loading after 4 seconds no matter what.
+    // This prevents the app from hanging if Supabase is slow or unreachable.
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn('Auth check timed out. Proceeding without session.');
+        setLoading(false);
+      }
+    }, 4000);
+
     const initializeAuth = async () => {
-      // 1. Check for an existing Guest session immediately
+      // 1. Check for Guest Session first (instant, no network needed)
       const guestSession = localStorage.getItem('hextech_trivia_guest_session');
       if (guestSession) {
         if (mounted) {
           setUser(JSON.parse(guestSession));
           setLoading(false);
+          clearTimeout(safetyTimer);
         }
-        return; // We have a guest, no need to check Supabase
+        return;
       }
 
-      // 2. Check for an active Supabase session (this is the reliable way)
+      // 2. Check for active Supabase session
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('getSession error:', error);
+        }
+
         if (session?.user && mounted) {
-          // Fetch the profile from our database
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
 
-          if (mounted) {
-            setUser(profile || null);
-          }
+          if (mounted) setUser(profile || null);
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
       } finally {
-        // Always mark loading as done, regardless of what happened
+        // Mark loading done and cancel safety timer
+        clearTimeout(safetyTimer);
         if (mounted) setLoading(false);
       }
     };
 
     initializeAuth();
 
-    // 3. Listen for future auth changes (login, logout, etc.)
+    // 3. Listen for future auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
@@ -65,12 +77,9 @@ export const AuthProvider = ({ children }) => {
             .select('*')
             .eq('id', session.user.id)
             .single();
-
-          if (mounted) {
-            setUser(profile || null);
-          }
+          if (mounted) setUser(profile || null);
         } catch (err) {
-          console.error('Profile fetch on sign-in error:', err);
+          console.error('Profile fetch error on sign-in:', err);
         } finally {
           if (mounted) setLoading(false);
         }
@@ -79,6 +88,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
