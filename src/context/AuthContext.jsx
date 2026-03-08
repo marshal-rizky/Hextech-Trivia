@@ -9,42 +9,83 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Check for Guest Session first
-    const guestSession = localStorage.getItem('hextech_trivia_guest_session');
-    if (guestSession) {
-      setUser(JSON.parse(guestSession));
-      setLoading(false);
-    }
+    let mounted = true;
 
-    // 2. Setup Supabase Auth Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        // Fetch profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          setUser(profile);
-          // If we logged in, clear guest session
-          localStorage.removeItem('hextech_trivia_guest_session');
+    const initializeAuth = async () => {
+      // 1. Check for an existing Guest session immediately
+      const guestSession = localStorage.getItem('hextech_trivia_guest_session');
+      if (guestSession) {
+        if (mounted) {
+          setUser(JSON.parse(guestSession));
+          setLoading(false);
         }
-      } else if (!guestSession) {
-        // Only clear user if there's no guest session being processed
-        setUser(null);
+        return; // We have a guest, no need to check Supabase
       }
-      setLoading(false);
+
+      // 2. Check for an active Supabase session (this is the reliable way)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user && mounted) {
+          // Fetch the profile from our database
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (mounted) {
+            setUser(profile || null);
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      } finally {
+        // Always mark loading as done, regardless of what happened
+        if (mounted) setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // 3. Listen for future auth changes (login, logout, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (mounted) {
+            setUser(profile || null);
+          }
+        } catch (err) {
+          console.error('Profile fetch on sign-in error:', err);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const login = (userData) => {
     setUser(userData);
+    setLoading(false);
   };
 
   const logout = async () => {
