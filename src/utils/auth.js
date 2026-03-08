@@ -19,6 +19,9 @@ export const registerUser = async (username, password) => {
     if (authError) throw authError;
     if (!authData.user) throw new Error("Authentication failed");
 
+    // Wait a brief moment to allow the Auth lock to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Create the public profile
     const { error: profileError } = await supabase
       .from('profiles')
