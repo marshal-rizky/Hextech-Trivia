@@ -6,7 +6,7 @@ import { supabase } from './supabase';
  */
 export const registerUser = async (username, password) => {
   try {
-    const email = `${username.toLowerCase()}@hextech-trivia.com`;
+    const email = `${username.toLowerCase()}@hextech.com`;
     
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -44,7 +44,7 @@ export const registerUser = async (username, password) => {
  */
 export const loginUser = async (username, password) => {
   try {
-    const email = `${username.toLowerCase()}@hextech-trivia.com`;
+    const email = `${username.toLowerCase()}@hextech.com`;
     
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,

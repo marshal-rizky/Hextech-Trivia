@@ -39,16 +39,16 @@ const PublicRoute = ({ children }) => {
 };
 
 // Auto-guest setter for /guest route
+// Auto-guest setter for /guest route
 const GuestLogin = () => {
   const { setGuest } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setGuest();
-    // Use navigate after a small timeout to allow context to set
-    setTimeout(() => {
-       window.location.href = '/dashboard';
-    }, 100);
-  }, []);
+    // Use navigate immediately to stay within the SPA context
+    navigate('/dashboard', { replace: true });
+  }, [setGuest, navigate]);
 
   return <div className="text-white text-center mt-20">Entering as Wanderer...</div>;
 };
