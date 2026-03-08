@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-hextech-blue: #0ac8b9;
+    --color-hextech-blue-glow: rgba(10, 200, 185, 0.4);
+    --color-gold: #c8aa6e;
+    --color-gold-hover: #f0e6d2;
+    --color-navy: #091428;
+    --color-deep-navy: #0a0e17;
+    --color-grey: #a09b8c;
+    --color-glass-bg: rgba(9, 20, 40, 0.65);
+    --color-glass-border: rgba(200, 170, 110, 0.3);
+  }
+
+  body {
+    background-color: var(--color-deep-navy);
+    color: var(--color-gold-hover);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cinzel', serif; /* Optional fallback, would include via Google Fonts if used */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: var(--color-glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(to right, #c8aa6e, #f0e6d2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-gradient-gold {
+    border-style: solid;
+    border-image: linear-gradient(to bottom, #c8aa6e, rgba(200, 170, 110, 0)) 1;
+  }
+  
+  .glow-blue {
+    box-shadow: 0 0 15px var(--color-hextech-blue-glow);
+  }
+}
